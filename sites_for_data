@@ -3,3 +3,5 @@ https://www.blockchain.com/charts/trade-volume -- pretty good, only has every th
 https://bitcoinvisuals.com/market-volume -- seems to have all the data, but only back to beginning of 2014 -- probably fine
 
 https://en.wikipedia.org/wiki/Portal:Current_events/2019_December_1 -- to get events from a specific day and year
+
+used http://www.eoddata.com/symbols.aspx?AspxAutoDetectCookieSupport=1 for list of stock symbols

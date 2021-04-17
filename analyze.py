@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
+from alpha_vantage.timeseries import TimeSeries
+import argparse
 from bs4 import BeautifulSoup
+import json
+import os
 import requests
 import pandas as pd
 
+ALPHA_VANTAGE_API_KEY = "PFPY0HSPR5GUPRNY"
+ts = TimeSeries(key=ALPHA_VANTAGE_API_KEY)
+
 class Analyzer:
-    def __init__(self):
-        data_fn = '/Users/gjacobu/Documents/school/Bitcoin-Blockchain/final_project/external_factors/data.csv'
+    def __init__(self, data_fn="data.csv", num_spikes=5, spikes=True):
         self.df = pd.read_csv(data_fn, parse_dates=[0])
     
-        spikes = self.find_top_spikes_valleys(50, spikes=False)
-        self.analyze_list(spikes)
+        self.spikes = self.find_top_spikes_troughs(num_spikes, spikes=spikes)
+        self.troughs = self.find_top_spikes_troughs(num_spikes, spikes=False)
 
-    def find_top_spikes_valleys(self, num_spikes, spikes=True):
+        # self.get_stock_data('NDAQ')
+
+    def analyze_bitcoin(self):
+        self.analyze_list(self.spikes, 'spikes')
+        self.analyze_list(self.troughs, 'troughs')
+
+    def find_top_spikes_troughs(self, num_spikes, spikes=True):
         prev_row = None
         all_diffs = []
         for row in self.df.iterrows():
@@ -37,13 +49,13 @@ class Analyzer:
                 all_diffs.append(diff)
             prev_row = row
 
-        # Only reverse sort if we're looking for spikes, not valleys
+        # Only reverse sort if we're looking for spikes, not troughs
         all_diffs.sort(reverse=spikes, key=lambda diff: diff['value'])
         
         return all_diffs[:num_spikes]
 
-    def analyze_list(self, data):
-        f_hand = open('/tmp/events', 'w')
+    def analyze_list(self, data, fn):
+        f_hand = open(os.path.join('/tmp', fn), 'w')
         events = []
         for diff in data:
             start_time = diff['start_time']
@@ -85,7 +97,25 @@ class Analyzer:
                 articles.append(li.get_text())
 
         return articles
+
+    
+    def get_stock_data(self, abbrev):
+        fn = os.path.join('stock_data', abbrev)
+        #If we have fetched the data already, just read it instead
+        if os.path.exists(fn):
+            with open(fn) as f_hand:
+                data = json.load(f_hand)
+        else:
+            data, metadata = ts.get_daily_adjusted(abbrev, outputsize="full")
+            with open(fn, 'w') as f_hand:
+                json.dump(data, f_hand, indent=2)
+
         
 
 if __name__ == '__main__':
-    a = Analyzer()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data-file', default="data.csv", help="The file storing Bitcoin Volume data")
+    parser.add_argument('--troughs', default=False, action="store_true", help="Analyze troughs (as opposed to spikes)")
+    parser.add_argument('--num-spikes', default=5, help="Number of spikes/troughs to analyze")
+    args = parser.parse_args()
+    a = Analyzer(data_fn=args.data_file, num_spikes=args.num_spikes, spikes=not args.troughs)
