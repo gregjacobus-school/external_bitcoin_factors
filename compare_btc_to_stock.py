@@ -4,36 +4,63 @@ import pickle
 import pandas as pd
 import matplotlib.pyplot as plt
 from analyze import Analyzer as az
+import sys
+
+WINDOW_SIZE = 7 #in days
+
 analyzer = az()
 
 analyzer.df = analyzer.df.set_index('DateTime')
 btc_vols = analyzer.df['Volume']
-btc_pct_changes = btc_vols.pct_change()
-btc_vols.plot()
-#btc_pct_changes.plot()
+#btc_vols.plot()
 
-with open('stock_data/google_pd.pickle', 'rb') as f:
-    goog_data = pickle.load(f)
-goog_data = goog_data.loc['2021-04-02':'2013-12-28']
-goog_vols = goog_data['6. volume']
+abbrev = 'S&P 500'
+abbrev = 'GOOGL'
+
+abbrev = abbrev.lower()
+with open(f'stock_data/{abbrev}_pd.pickle', 'rb') as f:
+    stock_data = pickle.load(f)
+stock_data = stock_data.loc['2021-04-02':'2013-12-28']
+stock_vols = stock_data['6. volume']
 
 #Need to fill in missing dates because stocks aren't recorded on weekends
 idx = pd.date_range('2013-12-28', '2021-04-02')
 fill_value = 0.0
-goog_vols = goog_vols.reindex(idx, fill_value=fill_value)
-for i, val in enumerate(goog_vols):
+stock_vols = stock_vols.reindex(idx, fill_value=fill_value)
+for i, val in enumerate(stock_vols):
     if val == fill_value:
-        goog_vols[i] = goog_vols[i-1]
+        stock_vols[i] = stock_vols[i-1]
 
-goog_vols = goog_vols * 1000
+#scaling factor to make the graph easier to look at
+stock_vols = stock_vols * 1000
 
-goog_pct_changes = goog_vols.pct_change()
-index = [i for i in range(goog_pct_changes.shape[0])]
-goog_pct_changes.index = pd.Index(index)
-goog_vols.plot()
-#goog_pct_changes.plot()
+stock_vols.plot()
 
-cor = goog_pct_changes.corr(btc_pct_changes)
-cor = goog_vols.corr(btc_vols)
+cor = stock_vols.corr(btc_vols)
 print(cor)
+#plt.show()
+
+#Perform the correlation for each time range
+print(btc_vols.shape)
+correlations = []
+start_time = btc_vols.index[0]
+end_time = start_time
+timedelta = pd.Timedelta(days=WINDOW_SIZE)
+while True:
+    start_time = end_time
+    end_time = start_time + timedelta
+    btc_subset = btc_vols.loc[start_time:end_time]
+    stock_subset = stock_vols.loc[start_time:end_time]
+    if btc_subset.empty or stock_subset.empty:
+        print(len(correlations))
+        break
+    try:
+        cor = stock_subset.corr(btc_subset)
+    except RuntimeError:
+        continue
+    correlations.append(cor)
+correlations = pd.Series(correlations)
+plt.scatter(correlations.index, correlations)
+#correlations.plot(kind='scatter')
 plt.show()
+

@@ -6,6 +6,7 @@ import json
 import os
 import requests
 import pandas as pd
+from create_wordclouds import create_wordclouds
 
 ALPHA_VANTAGE_API_KEY = "PFPY0HSPR5GUPRNY"
 ts = TimeSeries(key=ALPHA_VANTAGE_API_KEY)
@@ -13,9 +14,10 @@ ts = TimeSeries(key=ALPHA_VANTAGE_API_KEY)
 class Analyzer:
     def __init__(self, data_fn="data.csv", num_spikes=5, spikes=True):
         self.df = pd.read_csv(data_fn, parse_dates=[0])
-    
-        self.spikes = self.find_top_spikes_troughs(num_spikes, spikes=spikes)
-        self.troughs = self.find_top_spikes_troughs(num_spikes, spikes=False)
+
+        if data_fn == "data.csv":
+            self.spikes = self.find_top_spikes_troughs(num_spikes, spikes=spikes)
+            self.troughs = self.find_top_spikes_troughs(num_spikes, spikes=False)
 
         # self.get_stock_data('NDAQ')
 
@@ -23,7 +25,11 @@ class Analyzer:
         self.analyze_list(self.spikes, 'spikes')
         self.analyze_list(self.troughs, 'troughs')
 
-    def find_top_spikes_troughs(self, num_spikes, spikes=True):
+    def get_spikes_troughs(self, num_spikes, spikes=True, time_col="DateTime", analysis_col="Volume"):
+        self.spikes = self.find_top_spikes_troughs(num_spikes, spikes=True, time_col=time_col, analysis_col=analysis_col)
+        self.troughs = self.find_top_spikes_troughs(num_spikes, spikes=False, time_col=time_col, analysis_col=analysis_col)
+
+    def find_top_spikes_troughs(self, num_spikes, spikes=True, time_col="DateTime", analysis_col="Volume"):
         prev_row = None
         all_diffs = []
         for row in self.df.iterrows():
@@ -33,15 +39,17 @@ class Analyzer:
                 continue
 
             # Calculate based on pure increase
-            value = row.Volume - prev_row.Volume
+            value = row[analysis_col] - prev_row[analysis_col]
 
-            # Calculate based on percentage increage
-            value = (row.Volume - prev_row.Volume) / prev_row.Volume
+            # Calculate based on percentage increase
+            if prev_row[analysis_col] == 0:
+                continue
+            value = (row[analysis_col] - prev_row[analysis_col]) / prev_row[analysis_col]
             
             diff = {
                 'value': value,
-                'start_time': prev_row.DateTime,
-                'end_time': row.DateTime
+                'start_time': prev_row[time_col],
+                'end_time': row[time_col]
             }
             if spikes and diff['value'] > 0:
                 all_diffs.append(diff)
@@ -54,21 +62,33 @@ class Analyzer:
         
         return all_diffs[:num_spikes]
 
+    def find_mining_top_spikes_troughs(self, num_spikes, spikes=True):
+        rename = {'Timestamp': 'DateTime', 'difficulty': 'Volume'}
+        self.df = self.df.rename(columns=rename)
+        self.df.replace(0, 0.0000001, inplace=True)
+        return self.find_top_spikes_troughs(num_spikes=num_spikes, spikes=spikes)
+
     def analyze_list(self, data, fn):
         f_hand = open(os.path.join('/tmp', fn), 'w')
+        one_day_delta = pd.Timedelta(days=1)
         events = []
         for diff in data:
+            times_to_analyze = []
             start_time = diff['start_time']
-            date_str = f"{start_time.month_name()} {start_time.day}, {start_time.year}"
-            print(f'getting articles from {date_str}')
-            articles = self.get_events_on_day(start_time)
-            f_hand.write(f'================Articles from {date_str}=========================\n')
-            for article in articles:
-                events.append(article)
-                f_hand.write(article)
+            num_days_back = 1
+            times_to_analyze = [start_time]
+            times_to_analyze.extend([start_time - one_day_delta*i for i in range(num_days_back)])
+            for analyze_time in times_to_analyze:
+                date_str = f"{analyze_time.month_name()} {analyze_time.day}, {analyze_time.year}"
+                print(f'getting articles from {date_str}')
+                articles = self.get_events_on_day(analyze_time)
+                #f_hand.write(f'================Articles from {date_str}=========================\n')
+                for article in articles:
+                    events.append(article)
+                    f_hand.write(article)
+                    f_hand.write('\n')
+                f_hand.write('=' * 70)
                 f_hand.write('\n')
-            f_hand.write('=' * 70)
-            f_hand.write('\n')
         
         f_hand.close()
 
@@ -110,7 +130,8 @@ class Analyzer:
             with open(fn, 'w') as f_hand:
                 json.dump(data, f_hand, indent=2)
 
-        
+    def create_wordclouds(self):
+        create_wordclouds()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
