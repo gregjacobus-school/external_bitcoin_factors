@@ -15,6 +15,7 @@ class Analyzer:
     def __init__(self, data_fn="data.csv", num_spikes=5, spikes=True):
         self.df = pd.read_csv(data_fn, parse_dates=[0])
 
+        # self.df = self.df[(self.df['DateTime'] > pd.Timestamp('2017-01-01')) & (self.df['DateTime'] < pd.Timestamp('2021-04-20'))]
         if data_fn == "data.csv":
             self.spikes = self.find_top_spikes_troughs(num_spikes, spikes=spikes)
             self.troughs = self.find_top_spikes_troughs(num_spikes, spikes=False)
@@ -77,7 +78,8 @@ class Analyzer:
             start_time = diff['start_time']
             num_days_back = 1
             times_to_analyze = [start_time]
-            times_to_analyze.extend([start_time - one_day_delta*i for i in range(num_days_back)])
+            times_to_analyze.extend([start_time - one_day_delta*i for i in range(1, 1 + num_days_back)])
+            print(times_to_analyze)
             for analyze_time in times_to_analyze:
                 date_str = f"{analyze_time.month_name()} {analyze_time.day}, {analyze_time.year}"
                 print(f'getting articles from {date_str}')
