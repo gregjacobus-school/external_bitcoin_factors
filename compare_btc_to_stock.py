@@ -51,32 +51,39 @@ for abbrev in abbreviations:
 
     cor = stock_vols.corr(btc_vols)
     # print(cor)
-    # plt.show()
+    plt.show()
 
     #Perform the correlation for each time range
-    correlations = []
-    start_time = btc_vols.index[0]
-    end_time = start_time
-    timedelta = pd.Timedelta(days=WINDOW_SIZE)
-    while True:
-        start_time = end_time
-        end_time = start_time + timedelta
-        btc_subset = btc_vols.loc[start_time:end_time]
-        stock_subset = stock_vols.loc[start_time:end_time]
-        if btc_subset.empty or stock_subset.empty:
-            # print(len(correlations))
-            break
-        try:
-            cor = stock_subset.corr(btc_subset)
-        except RuntimeError:
-            continue
-        correlations.append(cor)
-    correlations = pd.Series(correlations)
-    correlations = correlations.dropna()
-    print(f'correlation stats for {abbrev}: max: {correlations.max()}  min: {correlations.min()}  average: {correlations.sum() / correlations.size}')
-    f_hand.write(f'{abbrev.upper()}, {round(correlations.min(), ROUND)}, {round(correlations.max(), ROUND)}, {round(correlations.sum() / correlations.size, ROUND)}\n')
-    plt.scatter(correlations.index, correlations)
-    #correlations.plot(kind='scatter')
-    # plt.show()
+    write_str = ''
+    for WINDOW_SIZE in [7,14]:
+        correlations = []
+        start_time = btc_vols.index[0]
+        end_time = start_time
+        timedelta = pd.Timedelta(days=WINDOW_SIZE)
+        while True:
+            start_time = end_time
+            end_time = start_time + timedelta
+            btc_subset = btc_vols.loc[start_time:end_time]
+            stock_subset = stock_vols.loc[start_time:end_time]
+            if btc_subset.empty or stock_subset.empty:
+                # print(len(correlations))
+                break
+            try:
+                cor = stock_subset.corr(btc_subset)
+            except RuntimeError:
+                continue
+            correlations.append(cor)
+        correlations = pd.Series(correlations)
+        correlations = correlations.dropna()
+        print(f'correlation stats for {abbrev}: max: {correlations.max()}  min: {correlations.min()}  average: {correlations.sum() / correlations.size}')
+        write_str += f'{abbrev.upper()}, {round(correlations.min(), ROUND)}, {round(correlations.max(), ROUND)}, {round(correlations.sum() / correlations.size, ROUND)},'
+        plt.scatter(correlations.index, correlations)
+        #correlations.plot(kind='scatter')
+        # plt.show()
+    
+    if write_str.endswith(','):
+        write_str = write_str[:-1]
+    f_hand.write(write_str)
+    f_hand.write('\n')
 
 f_hand.close()
