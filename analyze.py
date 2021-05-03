@@ -7,9 +7,10 @@ import os
 import requests
 import pandas as pd
 from create_wordclouds import create_wordclouds
+import pickle
 
 ALPHA_VANTAGE_API_KEY = "PFPY0HSPR5GUPRNY"
-ts = TimeSeries(key=ALPHA_VANTAGE_API_KEY)
+ts = TimeSeries(key=ALPHA_VANTAGE_API_KEY, output_format='pandas')
 
 class Analyzer:
     def __init__(self, data_fn="data.csv", num_spikes=5, spikes=True):
@@ -124,13 +125,16 @@ class Analyzer:
     def get_stock_data(self, abbrev):
         fn = os.path.join('stock_data', abbrev)
         #If we have fetched the data already, just read it instead
-        if os.path.exists(fn):
+        # if os.path.exists(fn):
+        if False:
             with open(fn) as f_hand:
                 data = json.load(f_hand)
         else:
             data, metadata = ts.get_daily_adjusted(abbrev, outputsize="full")
-            with open(fn, 'w') as f_hand:
-                json.dump(data, f_hand, indent=2)
+            with open(fn, 'wb') as f_hand:
+                pickle.dump(data, f_hand)
+            # with open(fn, 'w') as f_hand:
+                # json.dump(data, f_hand, indent=2)
 
     def create_wordclouds(self):
         create_wordclouds()
